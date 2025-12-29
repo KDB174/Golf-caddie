@@ -94,4 +94,37 @@
                             </div>
                             <button 
                                 onClick={() => { let n = [...scores]; n[holeIdx]++; setScores(n); }}
-                                className="golf-green text-white w-20 h-20 rounded-full text-4xl shadow-lg active:scale-
+                                className="golf-green text-white w-20 h-20 rounded-full text-4xl shadow-lg active:scale-95 transition-transform"
+                            > + </button>
+                        </div>
+                    </div>
+
+                    <div className="mt-auto mb-10 w-full px-6 flex gap-4">
+                        <button 
+                            onClick={() => {
+                                const report = scores.map((s,i) => `Hole ${i+1}: ${s}`).join('\n');
+                                alert("Current Scores:\n" + report);
+                            }}
+                            className="bg-white border-2 border-green-900 text-green-900 font-bold py-4 rounded-2xl flex-1"
+                        >SCORECARD</button>
+                        
+                        <button 
+                            onClick={() => { setManualClub(null); setHoleIdx((holeIdx + 1) % 18); }}
+                            className="bg-yellow-400 text-green-900 font-bold py-4 rounded-2xl flex-[2] shadow-md"
+                        >NEXT HOLE</button>
+                    </div>
+
+                    {userLocation && (
+                        <div className="fixed bottom-2 text-[10px] text-gray-400">
+                            GPS Active: {userLocation.latitude.toFixed(4)}, {userLocation.longitude.toFixed(4)}
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
