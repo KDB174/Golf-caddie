@@ -3,22 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>PNGC Auto Caddie</title>
+    <title>PNGC Caddie Pro</title>
+    
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#1a4314">
+    
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-gray-100">
+<body class="bg-gray-100 overscroll-none">
     <div id="root"></div>
     <script type="text/babel">
-        const { useState, useEffect } = React;
+        const { useState, useEffect, useRef } = React;
 
         const COURSE_DATA = {
             Blue: [364, 195, 509, 557, 393, 192, 361, 452, 385, 364, 399, 516, 173, 512, 325, 363, 173, 384],
-            White: [356, 174, 474, 486, 377, 170, 345, 429, 368, 346, 386, 495, 155, 485, 311, 351, 158, 364],
-            Yellow: [320, 140, 420, 430, 330, 140, 310, 380, 330, 310, 340, 440, 130, 430, 280, 310, 130, 330],
-            Pars: [4, 3, 5, 5, 4, 3, 4, 4, 4, 4, 4, 5, 3, 5, 4, 4, 3, 4]
-        };
-
-        const CLUBS_LIST = ['Driver', '3 Wood', '5 Wood', '3 Iron', '4 Iron', '5 Iron',
+            White: [356, 174, 474, 486, 377, 170, 345, 429, 368, 346, 386, 495, 155,
