@@ -3,27 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>PNGC Caddie V13</title>
-    
+    <title>PNGC Caddie Pro</title>
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="theme-color" content="#1a4314">
-
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-
     <style>
-        body { background-color: #1a4314; margin: 0; padding: 0; font-family: sans-serif; }
-        #root:empty::before { 
-            content: "Loading Caddie... If this stays white, check your internet or refresh."; 
-            color: white; display: flex; justify-content: center; padding-top: 50px; text-align: center;
-        }
+        body { background-color: #1a4314; margin: 0; font-family: sans-serif; }
+        #root:empty::before { content: "Loading PNGC Caddie..."; color: white; display: flex; justify-content: center; padding-top: 50px; }
     </style>
 </head>
 <body>
     <div id="root"></div>
-
     <script type="text/babel">
         const { useState, useEffect } = React;
 
@@ -38,19 +31,23 @@
 
         function App() {
             const [view, setView] = useState('setup');
-            const [tee, setTee] = useState('Blue');
+            const [tee, setTee] = useState('White');
+            const [numHoles, setNumHoles] = useState(18);
             const [handicap, setHandicap] = useState(18);
             const [holeIdx, setHoleIdx] = useState(0);
             const [scores, setScores] = useState(new Array(18).fill(0));
             const [startCoords, setStartCoords] = useState(null);
             const [walkedDist, setWalkedDist] = useState(0);
-            const [showMenu, setShowMenu] = useState(false);
+            const [showClubMenu, setShowClubMenu] = useState(false);
+            const [menuMode, setMenuMode] = useState('save'); // 'save' or 'change'
+            const [manualClub, setManualClub] = useState(null);
+            
             const [clubData, setClubData] = useState(() => {
-                const saved = localStorage.getItem('pngc_v13');
+                const saved = localStorage.getItem('pngc_v14');
                 return saved ? JSON.parse(saved) : CLUBS.map((l, i) => ({ label: l, dist: 210 - (i * 12) }));
             });
 
-            useEffect(() => { localStorage.setItem('pngc_v13', JSON.stringify(clubData)); }, [clubData]);
+            useEffect(() => { localStorage.setItem('pngc_v14', JSON.stringify(clubData)); }, [clubData]);
 
             useEffect(() => {
                 let watchId;
@@ -59,86 +56,4 @@
                         const R = 6371e3; 
                         const dLat = (pos.coords.latitude - startCoords.lat) * Math.PI / 180;
                         const dLon = (pos.coords.longitude - startCoords.lon) * Math.PI / 180;
-                        const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(startCoords.lat * Math.PI/180) * Math.cos(pos.coords.latitude * Math.PI/180) * Math.sin(dLon/2) * Math.sin(dLon/2);
-                        setWalkedDist(Math.round(2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))));
-                    }, null, { enableHighAccuracy: true });
-                }
-                return () => navigator.geolocation.clearWatch(watchId);
-            }, [startCoords]);
-
-            const getClub = () => {
-                const d = COURSE_DATA[tee][holeIdx] + (handicap * 0.3);
-                const pick = [...clubData].sort((a,b) => a.dist - b.dist).find(c => c.dist >= d);
-                return pick ? pick.label : "Driver";
-            };
-
-            if (view === 'setup') {
-                return (
-                    <div className="min-h-screen p-8 flex flex-col items-center justify-center text-white">
-                        <h1 className="text-5xl font-black mb-10 italic text-yellow-400">PNGC V13</h1>
-                        <div className="w-full max-w-xs space-y-6">
-                            <div className="grid grid-cols-3 gap-2">
-                                {['Blue', 'White', 'Yellow'].map(t => (
-                                    <button key={t} onClick={() => setTee(t)} className={`p-4 rounded-xl font-bold border-2 ${tee === t ? 'bg-yellow-400 text-black border-yellow-400' : 'bg-white/10'}`}>{t}</button>
-                                ))}
-                            </div>
-                            <input type="range" min="0" max="54" value={handicap} onChange={e => setHandicap(parseInt(e.target.value))} className="w-full accent-yellow-400" />
-                            <p className="text-center font-bold">Handicap: {handicap}</p>
-                            <button onClick={() => setView('play')} className="w-full bg-white text-green-900 py-5 rounded-2xl font-black text-xl uppercase">Start</button>
-                        </div>
-                    </div>
-                );
-            }
-
-            return (
-                <div className="min-h-screen bg-gray-100 flex flex-col items-center">
-                    <div className="w-full bg-[#1a4314] p-6 text-white text-center rounded-b-[40px] shadow-lg">
-                        <p className="text-xs font-bold opacity-60 uppercase">Hole {holeIdx+1} • {tee}</p>
-                        <h2 className="text-7xl font-black my-2">{COURSE_DATA[tee][holeIdx]}m</h2>
-                        <div className="bg-yellow-400 text-black px-6 py-2 rounded-full font-black uppercase italic inline-block">Pull: {getClub()}</div>
-                    </div>
-
-                    <div className="w-full p-4 space-y-4 max-w-md">
-                        <div className="bg-white p-6 rounded-[30px] shadow-sm border border-gray-200 text-center">
-                            <p className="text-4xl font-black text-green-900">{walkedDist}m</p>
-                            {!startCoords ? (
-                                <button onClick={() => navigator.geolocation.getCurrentPosition(p => setStartCoords({lat: p.coords.latitude, lon: p.coords.longitude}))} className="w-full mt-4 bg-green-900 text-white py-4 rounded-xl font-bold uppercase">Track Shot</button>
-                            ) : (
-                                <button onClick={() => setShowMenu(true)} className="w-full mt-4 bg-yellow-500 text-white py-4 rounded-xl font-bold uppercase">Save Distance</button>
-                            )}
-                        </div>
-
-                        <div className="bg-white p-4 rounded-[30px] shadow-sm border border-gray-100 flex justify-between items-center">
-                            <button onClick={() => {let n=[...scores]; n[holeIdx]=Math.max(0, n[holeIdx]-1); setScores(n)}} className="text-5xl text-gray-200 px-4">-</button>
-                            <div className="text-center"><p className="text-xs font-bold text-gray-400 uppercase">Score</p><p className="text-5xl font-black text-green-900">{scores[holeIdx]}</p></div>
-                            <button onClick={() => {let n=[...scores]; n[holeIdx]++; setScores(n)}} className="w-16 h-16 bg-green-900 text-white rounded-full text-4xl font-bold">+</button>
-                        </div>
-                    </div>
-
-                    <div className="mt-auto w-full grid grid-cols-2 gap-2 p-4">
-                        <button onClick={() => alert(clubData.map(c=>`${c.label}: ${c.dist}m`).join('\n'))} className="bg-white py-4 rounded-xl text-xs font-bold uppercase text-gray-400 border">My Bag</button>
-                        <button onClick={() => {setStartCoords(null); setWalkedDist(0); setHoleIdx((holeIdx+1)%18)}} className="bg-black text-white py-4 rounded-xl font-bold text-xs uppercase">Next Hole</button>
-                    </div>
-
-                    {showMenu && (
-                        <div className="fixed inset-0 z-50 bg-black/80 flex flex-col justify-end">
-                            <div className="bg-white rounded-t-[40px] p-6 grid grid-cols-3 gap-2">
-                                {CLUBS.map(c => (
-                                    <button key={c} onClick={() => {
-                                        setClubData(prev => prev.map(club => (club.label === c && walkedDist > club.dist) ? {...club, dist: walkedDist} : club));
-                                        setStartCoords(null); setWalkedDist(0); setShowMenu(false);
-                                    }} className="bg-gray-100 py-4 rounded-xl font-bold text-xs uppercase">{c}</button>
-                                ))}
-                                <button onClick={() => setShowMenu(false)} className="col-span-3 mt-4 text-gray-400 uppercase text-xs font-bold">Cancel</button>
-                            </div>
-                        </div>
-                    )}
-                </div>
-            );
-        }
-
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
-    </script>
-</body>
-</html>
+                        const a = Math.sin
