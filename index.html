@@ -3,11 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>PNGC Smart Caddie</title>
+    <title>PNGC Pro Caddie</title>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .modal-overlay { background: rgba(0,0,0,0.8); backdrop-filter: blur(4px); }
+    </style>
 </head>
 <body class="bg-gray-100">
     <div id="root"></div>
@@ -16,7 +19,6 @@
 
         const COURSE_DIST = [364, 195, 509, 557, 393, 192, 361, 452, 385, 364, 399, 516, 173, 512, 325, 363, 173, 384];
         const PARS = [4, 3, 5, 5, 4, 3, 4, 4, 4, 4, 4, 5, 3, 5, 4, 4, 3, 4];
-        
         const DEFAULT_CLUBS = [
             { label: 'Driver', dist: 220 }, { label: '3 Wood', dist: 200 }, { label: '5 Wood', dist: 185 },
             { label: '3 Iron', dist: 180 }, { label: '4 Iron', dist: 170 }, { label: '5 Iron', dist: 160 }, 
@@ -29,12 +31,13 @@
             const [scores, setScores] = useState(new Array(18).fill(0));
             const [startCoords, setStartCoords] = useState(null);
             const [walkedDist, setWalkedDist] = useState(0);
+            const [showMap, setShowMap] = useState(false);
             const [clubData, setClubData] = useState(() => {
-                const saved = localStorage.getItem('pngc_v3');
+                const saved = localStorage.getItem('pngc_v5');
                 return saved ? JSON.parse(saved) : DEFAULT_CLUBS;
             });
 
-            useEffect(() => { localStorage.setItem('pngc_v3', JSON.stringify(clubData)); }, [clubData]);
+            useEffect(() => { localStorage.setItem('pngc_v5', JSON.stringify(clubData)); }, [clubData]);
 
             useEffect(() => {
                 let watchId;
@@ -50,44 +53,78 @@
                 return () => navigator.geolocation.clearWatch(watchId);
             }, [startCoords]);
 
-            // Calculate Total Score vs Par
-            const totalScore = scores.reduce((acc, curr, idx) => {
-                if (curr === 0) return acc;
-                return acc + (curr - PARS[idx]);
-            }, 0);
-
-            const getSuggestion = (d) => {
-                const rec = [...clubData].sort((a,b) => a.dist - b.dist).find(c => c.dist >= d);
-                return rec ? rec.label : "Driver";
-            };
-
-            const saveShot = () => {
-                const club = prompt("Which club? (e.g., 3 Iron):");
-                if (club) {
-                    setClubData(prev => prev.map(c => (c.label.toLowerCase() === club.toLowerCase() && walkedDist > c.dist) ? {...c, dist: walkedDist} : c));
-                }
-                setStartCoords(null);
-                setWalkedDist(0);
-            };
+            const totalScore = scores.reduce((acc, curr, idx) => curr === 0 ? acc : acc + (curr - PARS[idx]), 0);
+            const getSuggestion = (d) => [...clubData].sort((a,b) => a.dist - b.dist).find(c => c.dist >= d)?.label || "Driver";
 
             return (
-                <div className="min-h-screen flex flex-col items-center bg-gray-100 font-sans p-4">
-                    {/* Header with Total Par Score */}
-                    <div className="w-full flex justify-between px-4 mb-2">
-                        <span className="text-xs font-bold text-gray-500 uppercase">PNGC Caddie</span>
-                        <span className={`text-xs font-bold uppercase ${totalScore > 0 ? 'text-red-500' : totalScore < 0 ? 'text-blue-500' : 'text-gray-500'}`}>
-                            Total: {totalScore === 0 ? 'E' : totalScore > 0 ? `+${totalScore}` : totalScore}
+                <div className="min-h-screen flex flex-col items-center bg-gray-50 font-sans p-4 relative">
+                    
+                    {/* Integrated Map Modal */}
+                    {showMap && (
+                        <div className="fixed inset-0 z-50 modal-overlay flex flex-col items-center justify-center p-4" onClick={() => setShowMap(false)}>
+                            <div className="bg-white p-2 rounded-2xl max-w-full max-h-[80vh] overflow-hidden shadow-2xl">
+                                <img 
+                                    src="https://pngc.co.nz/wp-content/uploads/2018/09/Course-Map.jpg" 
+                                    className="w-full h-auto rounded-xl"
+                                    alt="PNGC Course Map"
+                                />
+                            </div>
+                            <button className="mt-6 bg-white text-black px-8 py-3 rounded-full font-bold shadow-lg">CLOSE MAP</button>
+                        </div>
+                    )}
+
+                    <div className="w-full flex justify-between px-2 mb-2 font-black text-[10px] text-green-900 tracking-widest">
+                        <span>PNGC CADDIE</span>
+                        <span className={totalScore > 0 ? 'text-red-600' : 'text-blue-600'}>
+                            SCORE: {totalScore > 0 ? `+${totalScore}` : totalScore === 0 ? 'EVEN' : totalScore}
                         </span>
                     </div>
 
-                    <div className="w-full bg-[#1a4314] p-6 text-white text-center rounded-3xl shadow-xl mb-4">
-                        <p className="text-xs font-bold opacity-70 uppercase tracking-widest">Hole {holeIdx + 1} • Par {PARS[holeIdx]}</p>
-                        <h1 className="text-6xl font-black my-2">{COURSE_DIST[holeIdx]}m</h1>
-                        <div className="mt-4 p-4 bg-white/10 rounded-xl border border-white/20">
-                            <p className="text-yellow-400 text-[10px] font-bold uppercase tracking-widest">Caddie Recommendation</p>
-                            <p className="text-3xl font-bold">{getSuggestion(COURSE_DIST[holeIdx])}</p>
+                    <div className="w-full bg-[#1a4314] p-6 text-white text-center rounded-3xl shadow-xl mb-4 border-b-8 border-black/20">
+                        <p className="text-[10px] font-bold opacity-70 uppercase tracking-widest">Hole {holeIdx + 1} • Par {PARS[holeIdx]}</p>
+                        <h1 className="text-7xl font-black my-1 leading-none">{COURSE_DIST[holeIdx]}<span className="text-xl ml-1 text-yellow-400">m</span></h1>
+                        <div className="mt-4 py-2 px-6 bg-yellow-400 text-green-900 rounded-full inline-block shadow-md">
+                            <p className="text-xs font-black uppercase italic">Take: {getSuggestion(COURSE_DIST[holeIdx])}</p>
                         </div>
                     </div>
 
-                    <div className={`w-full p-8 rounded-3xl border-2 text-center mb-4 transition-all ${startCoords ? 'bg-green-100 border-green-600' : 'bg-white border-gray-200 shadow-sm'}`}>
-                        <p className="text-gray-4
+                    <div className={`w-full p-6 rounded-3xl border-4 text-center mb-4 transition-all ${startCoords ? 'bg-green-100 border-green-600' : 'bg-white border-gray-200 shadow-inner'}`}>
+                        <p className="text-gray-400 text-[10px] font-bold uppercase mb-1">Drive Tracker</p>
+                        <p className="text-6xl font-black text-green-900 leading-tight">{walkedDist}m</p>
+                        {!startCoords ? (
+                            <button onClick={() => navigator.geolocation.getCurrentPosition(p => setStartCoords({lat: p.coords.latitude, lon: p.coords.longitude}))} className="mt-4 w-full bg-[#1a4314] text-white py-4 rounded-2xl font-black text-sm uppercase shadow-lg active:scale-95 transition-transform">Start Shot Tracker</button>
+                        ) : (
+                            <div className="flex gap-2 mt-4">
+                                <button onClick={() => {
+                                    const club = prompt("Which club?");
+                                    if(club) setClubData(prev => prev.map(c => (c.label.toLowerCase() === club.toLowerCase() && walkedDist > c.dist) ? {...c, dist: walkedDist} : c));
+                                    setStartCoords(null); setWalkedDist(0);
+                                }} className="flex-1 bg-green-600 text-white py-4 rounded-xl font-bold text-[10px] uppercase shadow-md tracking-tighter">Save Best</button>
+                                <button onClick={() => {setStartCoords(null); setWalkedDist(0)}} className="flex-1 bg-gray-400 text-white py-4 rounded-xl font-bold text-[10px] uppercase">Cancel</button>
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="w-full bg-white p-4 rounded-2xl flex justify-between items-center shadow-md mb-4 border border-gray-100">
+                        <span className="font-bold text-xs text-gray-400 uppercase">Strokes</span>
+                        <div className="flex items-center gap-8">
+                            <button onClick={() => {let n=[...scores]; n[holeIdx]=Math.max(0, n[holeIdx]-1); setScores(n)}} className="text-4xl text-gray-200 font-bold">-</button>
+                            <span className="text-5xl font-black text-green-900 leading-none">{scores[holeIdx]}</span>
+                            <button onClick={() => {let n=[...scores]; n[holeIdx]++; setScores(n)}} className="w-14 h-14 bg-yellow-400 text-green-900 rounded-full text-4xl shadow-lg flex items-center justify-center font-bold">+</button>
+                        </div>
+                    </div>
+
+                    <div className="mt-auto w-full grid grid-cols-3 gap-2 pb-2">
+                        <button onClick={() => setShowMap(true)} className="bg-blue-600 text-white py-4 rounded-2xl text-[10px] font-bold uppercase shadow-lg active:bg-blue-700">View Map</button>
+                        <button onClick={() => alert(clubData.map(c=>`${c.label}: ${c.dist}m`).join('\n'))} className="bg-white border-2 border-gray-200 text-gray-600 py-4 rounded-2xl text-[10px] font-bold uppercase shadow-sm">My Bag</button>
+                        <button onClick={() => {setStartCoords(null); setWalkedDist(0); setHoleIdx((holeIdx+1)%18)}} className="bg-green-800 text-white py-4 rounded-2xl font-black text-[10px] uppercase shadow-lg">Next Hole</button>
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
