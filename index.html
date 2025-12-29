@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>PNGC Pro Caddie</title>
+    <title>PNGC Smart Caddie</title>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         .golf-green { background-color: #1a4314; }
-        .btn-active { transform: scale(0.95); opacity: 0.8; }
+        .distance-card { background: linear-gradient(145deg, #1a4314, #2d5a22); }
     </style>
 </head>
 <body class="bg-gray-100">
@@ -18,113 +18,65 @@
     <script type="text/babel">
         const { useState, useEffect } = React;
 
-        // PNGC Hole Coordinates (Approximate Center of Greens)
-        const HOLE_COORDS = [
-            {lat: -40.3541, lon: 175.6125}, // Hole 1
-            {lat: -40.3552, lon: 175.6130}, // Hole 2
-            // Note: For full accuracy, you can update these later!
-        ];
+        const COURSE_DIST = [364, 195, 509, 557, 393, 192, 361, 452, 385, 364, 399, 516, 173, 512, 325, 363, 173, 384];
 
-        const COURSE = {
-            Blue: [364, 195, 509, 557, 393, 192, 361, 452, 385, 364, 399, 516, 173, 512, 325, 363, 173, 384],
-            Pars: [4, 3, 5, 5, 4, 3, 4, 4, 4, 4, 4, 5, 3, 5, 4, 4, 3, 4]
-        };
-
-        const CLUBS = [
-            { id: 'D', label: 'Driver', dist: 225 }, { id: '3W', label: '3 Wood', dist: 205 },
-            { id: '5W', label: '5 Wood', dist: 190 }, { id: '3I', label: '3 Iron', dist: 180 },
-            { id: '4I', label: '4 Iron', dist: 170 }, { id: '5I', label: '5 Iron', dist: 160 },
-            { id: '6I', label: '6 Iron', dist: 150 }, { id: '7I', label: '7 Iron', dist: 140 },
-            { id: '8I', label: '8 Iron', dist: 130 }, { id: '9I', label: '9 Iron', dist: 120 },
-            { id: 'PW', label: 'PW', dist: 110 }, { id: 'SW', label: 'SW', dist: 90 }
+        // Default distances if you have no history yet
+        const DEFAULT_CLUBS = [
+            { label: 'Driver', dist: 220 }, { label: '3 Wood', dist: 200 },
+            { label: '5 Wood', dist: 185 }, { label: '4 Iron', dist: 170 },
+            { label: '5 Iron', dist: 160 }, { label: '6 Iron', dist: 150 },
+            { label: '7 Iron', dist: 140 }, { label: '8 Iron', dist: 130 },
+            { label: '9 Iron', dist: 120 }, { label: 'PW', dist: 110 }, { label: 'SW', dist: 90 }
         ];
 
         function App() {
             const [holeIdx, setHoleIdx] = useState(0);
             const [scores, setScores] = useState(new Array(18).fill(0));
-            const [manualClub, setManualClub] = useState(null);
-            const [userLocation, setUserLocation] = useState(null);
-            const [gpsDist, setGpsDist] = useState(null);
+            const [startCoords, setStartCoords] = useState(null);
+            const [walkedDist, setWalkedDist] = useState(0);
+            
+            // Load shot history from phone memory
+            const [clubData, setClubData] = useState(() => {
+                const saved = localStorage.getItem('pngc_club_data');
+                return saved ? JSON.parse(saved) : DEFAULT_CLUBS;
+            });
 
-            // Watch GPS Location
             useEffect(() => {
-                const watchId = navigator.geolocation.watchPosition(
-                    (pos) => {
-                        setUserLocation(pos.coords);
-                        // If we had exact GPS for greens, we'd calc distance here
-                    },
-                    (err) => console.log(err),
-                    { enableHighAccuracy: true }
-                );
+                localStorage.setItem('pngc_club_data', JSON.stringify(clubData));
+            }, [clubData]);
+
+            // GPS Tracker Logic
+            useEffect(() => {
+                let watchId;
+                if (startCoords) {
+                    watchId = navigator.geolocation.watchPosition((pos) => {
+                        const d = calculateDistance(startCoords.lat, startCoords.lon, pos.coords.latitude, pos.coords.longitude);
+                        setWalkedDist(Math.round(d));
+                    }, null, { enableHighAccuracy: true });
+                }
                 return () => navigator.geolocation.clearWatch(watchId);
-            }, [holeIdx]);
+            }, [startCoords]);
 
-            const getSuggestion = (dist) => {
-                if (manualClub) return manualClub;
-                const suggestion = [...CLUBS].reverse().find(c => c.dist >= dist) || CLUBS[0];
-                return suggestion.label;
+            function calculateDistance(lat1, lon1, lat2, lon2) {
+                const R = 6371e3; 
+                const dLat = (lat2 - lat1) * Math.PI / 180;
+                const dLon = (lon2 - lon1) * Math.PI / 180;
+                const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(lat1 * Math.PI/180) * Math.cos(lat2 * Math.PI/180) * Math.sin(dLon/2) * Math.sin(dLon/2);
+                return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            }
+
+            // Suggestion Logic: Uses the best (max) distance in your data
+            const getSuggestion = (distRemaining) => {
+                const sortedClubs = [...clubData].sort((a, b) => a.dist - b.dist);
+                const recommendation = sortedClubs.find(c => c.dist >= distRemaining);
+                return recommendation ? recommendation.label : "Driver";
             };
 
-            const changeClub = () => {
-                const choice = prompt("Which club are you using?");
-                if (choice) setManualClub(choice);
-            };
-
-            return (
-                <div className="min-h-screen flex flex-col items-center bg-gray-50">
-                    <div className="w-full golf-green p-6 text-white text-center rounded-b-[40px] shadow-xl">
-                        <h1 className="text-xl font-bold opacity-80">PNGC HOLE {holeIdx + 1}</h1>
-                        <div className="my-4">
-                            <span className="text-7xl font-black">{COURSE.Blue[holeIdx]}m</span>
-                            <p className="text-sm opacity-60">TO GREEN CENTER</p>
-                        </div>
-                        
-                        <div className="bg-white/10 p-4 rounded-2xl mt-4 border border-white/20">
-                            <p className="text-yellow-400 font-bold">CADDIE SUGGESTS:</p>
-                            <p className="text-2xl font-bold">{getSuggestion(COURSE.Blue[holeIdx])}</p>
-                            <button onClick={changeClub} className="text-xs underline mt-2 opacity-80">Change Club</button>
-                        </div>
-                    </div>
-
-                    <div className="flex flex-col items-center mt-10 w-full px-6">
-                        <div className="flex items-center gap-6">
-                            <div className="text-center">
-                                <p className="text-gray-500 text-sm uppercase font-bold">Strokes</p>
-                                <p className="text-4xl font-bold text-green-900">{scores[holeIdx]}</p>
-                            </div>
-                            <button 
-                                onClick={() => { let n = [...scores]; n[holeIdx]++; setScores(n); }}
-                                className="golf-green text-white w-20 h-20 rounded-full text-4xl shadow-lg active:scale-95 transition-transform"
-                            > + </button>
-                        </div>
-                    </div>
-
-                    <div className="mt-auto mb-10 w-full px-6 flex gap-4">
-                        <button 
-                            onClick={() => {
-                                const report = scores.map((s,i) => `Hole ${i+1}: ${s}`).join('\n');
-                                alert("Current Scores:\n" + report);
-                            }}
-                            className="bg-white border-2 border-green-900 text-green-900 font-bold py-4 rounded-2xl flex-1"
-                        >SCORECARD</button>
-                        
-                        <button 
-                            onClick={() => { setManualClub(null); setHoleIdx((holeIdx + 1) % 18); }}
-                            className="bg-yellow-400 text-green-900 font-bold py-4 rounded-2xl flex-[2] shadow-md"
-                        >NEXT HOLE</button>
-                    </div>
-
-                    {userLocation && (
-                        <div className="fixed bottom-2 text-[10px] text-gray-400">
-                            GPS Active: {userLocation.latitude.toFixed(4)}, {userLocation.longitude.toFixed(4)}
-                        </div>
-                    )}
-                </div>
-            );
-        }
-
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
-    </script>
-</body>
-</html>
+            const handleSaveShot = () => {
+                const clubLabel = prompt("Which club did you use?", "7 Iron");
+                if (clubLabel) {
+                    setClubData(prev => prev.map(c => {
+                        // If this shot is better (longer) than your previous best for this club, update it!
+                        if (c.label.toLowerCase() === clubLabel.toLowerCase() && walkedDist > c.dist) {
+                            alert(`New Personal Best for ${c.label}: ${walkedDist}m!`);
+                            return { ...c, dist: walkedDist };
