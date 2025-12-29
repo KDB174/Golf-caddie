@@ -8,10 +8,6 @@
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        .golf-green { background-color: #1a4314; }
-        .distance-card { background: linear-gradient(145deg, #1a4314, #2d5a22); }
-    </style>
 </head>
 <body class="bg-gray-100">
     <div id="root"></div>
@@ -19,14 +15,11 @@
         const { useState, useEffect } = React;
 
         const COURSE_DIST = [364, 195, 509, 557, 393, 192, 361, 452, 385, 364, 399, 516, 173, 512, 325, 363, 173, 384];
-
-        // Default distances if you have no history yet
         const DEFAULT_CLUBS = [
-            { label: 'Driver', dist: 220 }, { label: '3 Wood', dist: 200 },
-            { label: '5 Wood', dist: 185 }, { label: '4 Iron', dist: 170 },
-            { label: '5 Iron', dist: 160 }, { label: '6 Iron', dist: 150 },
-            { label: '7 Iron', dist: 140 }, { label: '8 Iron', dist: 130 },
-            { label: '9 Iron', dist: 120 }, { label: 'PW', dist: 110 }, { label: 'SW', dist: 90 }
+            { label: 'Driver', dist: 220 }, { label: '3 Wood', dist: 200 }, { label: '5 Wood', dist: 185 },
+            { label: '4 Iron', dist: 170 }, { label: '5 Iron', dist: 160 }, { label: '6 Iron', dist: 150 },
+            { label: '7 Iron', dist: 140 }, { label: '8 Iron', dist: 130 }, { label: '9 Iron', dist: 120 },
+            { label: 'PW', dist: 110 }, { label: 'SW', dist: 90 }
         ];
 
         function App() {
@@ -34,49 +27,84 @@
             const [scores, setScores] = useState(new Array(18).fill(0));
             const [startCoords, setStartCoords] = useState(null);
             const [walkedDist, setWalkedDist] = useState(0);
-            
-            // Load shot history from phone memory
             const [clubData, setClubData] = useState(() => {
-                const saved = localStorage.getItem('pngc_club_data');
+                const saved = localStorage.getItem('pngc_v2');
                 return saved ? JSON.parse(saved) : DEFAULT_CLUBS;
             });
 
-            useEffect(() => {
-                localStorage.setItem('pngc_club_data', JSON.stringify(clubData));
-            }, [clubData]);
+            useEffect(() => { localStorage.setItem('pngc_v2', JSON.stringify(clubData)); }, [clubData]);
 
-            // GPS Tracker Logic
             useEffect(() => {
                 let watchId;
                 if (startCoords) {
                     watchId = navigator.geolocation.watchPosition((pos) => {
-                        const d = calculateDistance(startCoords.lat, startCoords.lon, pos.coords.latitude, pos.coords.longitude);
-                        setWalkedDist(Math.round(d));
+                        const R = 6371e3;
+                        const dLat = (pos.coords.latitude - startCoords.lat) * Math.PI / 180;
+                        const dLon = (pos.coords.longitude - startCoords.lon) * Math.PI / 180;
+                        const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(startCoords.lat * Math.PI/180) * Math.cos(pos.coords.latitude * Math.PI/180) * Math.sin(dLon/2) * Math.sin(dLon/2);
+                        setWalkedDist(Math.round(2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))));
                     }, null, { enableHighAccuracy: true });
                 }
                 return () => navigator.geolocation.clearWatch(watchId);
             }, [startCoords]);
 
-            function calculateDistance(lat1, lon1, lat2, lon2) {
-                const R = 6371e3; 
-                const dLat = (lat2 - lat1) * Math.PI / 180;
-                const dLon = (lon2 - lon1) * Math.PI / 180;
-                const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(lat1 * Math.PI/180) * Math.cos(lat2 * Math.PI/180) * Math.sin(dLon/2) * Math.sin(dLon/2);
-                return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-            }
-
-            // Suggestion Logic: Uses the best (max) distance in your data
-            const getSuggestion = (distRemaining) => {
-                const sortedClubs = [...clubData].sort((a, b) => a.dist - b.dist);
-                const recommendation = sortedClubs.find(c => c.dist >= distRemaining);
-                return recommendation ? recommendation.label : "Driver";
+            const getSuggestion = (d) => {
+                const rec = [...clubData].sort((a,b) => a.dist - b.dist).find(c => c.dist >= d);
+                return rec ? rec.label : "Driver";
             };
 
-            const handleSaveShot = () => {
-                const clubLabel = prompt("Which club did you use?", "7 Iron");
-                if (clubLabel) {
-                    setClubData(prev => prev.map(c => {
-                        // If this shot is better (longer) than your previous best for this club, update it!
-                        if (c.label.toLowerCase() === clubLabel.toLowerCase() && walkedDist > c.dist) {
-                            alert(`New Personal Best for ${c.label}: ${walkedDist}m!`);
-                            return { ...c, dist: walkedDist };
+            const saveShot = () => {
+                const club = prompt("Enter club name (e.g., 7 Iron):");
+                if (club) {
+                    setClubData(prev => prev.map(c => (c.label.toLowerCase() === club.toLowerCase() && walkedDist > c.dist) ? {...c, dist: walkedDist} : c));
+                }
+                setStartCoords(null);
+                setWalkedDist(0);
+            };
+
+            return (
+                <div className="min-h-screen flex flex-col items-center bg-gray-50 font-sans p-4">
+                    <div className="w-full bg-[#1a4314] p-6 text-white text-center rounded-3xl shadow-xl mb-4">
+                        <p className="text-xs font-bold opacity-70">HOLE {holeIdx + 1}</p>
+                        <h1 className="text-6xl font-black">{COURSE_DIST[holeIdx]}m</h1>
+                        <div className="mt-4 p-4 bg-white/10 rounded-xl border border-white/20">
+                            <p className="text-yellow-400 text-xs font-bold uppercase">Caddie Pick</p>
+                            <p className="text-3xl font-bold">{getSuggestion(COURSE_DIST[holeIdx])}</p>
+                        </div>
+                    </div>
+
+                    <div className={`w-full p-6 rounded-3xl border-2 text-center mb-4 ${startCoords ? 'bg-green-100 border-green-600' : 'bg-white border-gray-200 shadow-sm'}`}>
+                        <p className="text-gray-400 text-xs font-bold uppercase">Shot Tracker</p>
+                        <p className="text-6xl font-black text-green-900">{walkedDist}m</p>
+                        {!startCoords ? (
+                            <button onClick={() => navigator.geolocation.getCurrentPosition(p => setStartCoords({lat: p.coords.latitude, lon: p.coords.longitude}))} className="mt-4 w-full bg-[#1a4314] text-white py-4 rounded-xl font-bold uppercase">Track Drive</button>
+                        ) : (
+                            <div className="flex gap-2 mt-4">
+                                <button onClick={saveShot} className="flex-1 bg-yellow-500 text-white py-4 rounded-xl font-bold text-xs uppercase">Save Best</button>
+                                <button onClick={() => {setStartCoords(null); setWalkedDist(0)}} className="flex-1 bg-gray-400 text-white py-4 rounded-xl font-bold text-xs uppercase">Cancel</button>
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="w-full bg-white p-4 rounded-2xl flex justify-between items-center shadow-sm mb-4">
+                        <span className="font-bold text-xs text-gray-400 uppercase">Strokes</span>
+                        <div className="flex items-center gap-4">
+                            <button onClick={() => {let n=[...scores]; n[holeIdx]=Math.max(0, n[holeIdx]-1); setScores(n)}} className="text-2xl">-</button>
+                            <span className="text-4xl font-black text-green-900">{scores[holeIdx]}</span>
+                            <button onClick={() => {let n=[...scores]; n[holeIdx]++; setScores(n)}} className="w-12 h-12 bg-[#1a4314] text-white rounded-full text-2xl shadow-lg">+</button>
+                        </div>
+                    </div>
+
+                    <div className="mt-auto w-full flex gap-2">
+                        <button onClick={() => alert(clubData.map(c=>`${c.label}: ${c.dist}m`).join('\n'))} className="bg-white border border-gray-300 py-4 rounded-xl flex-1 text-xs font-bold">MY BAG</button>
+                        <button onClick={() => setHoleIdx((holeIdx+1)%18)} className="bg-yellow-400 py-4 rounded-xl flex-[2] font-black text-xs uppercase">Next Hole</button>
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
