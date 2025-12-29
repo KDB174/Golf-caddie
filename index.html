@@ -1,18 +1,29 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PNGC Caddie</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>PNGC Pro Caddie</title>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .golf-green { background-color: #1a4314; }
+        .btn-active { transform: scale(0.95); opacity: 0.8; }
+    </style>
 </head>
-<body>
+<body class="bg-gray-100">
     <div id="root"></div>
     <script type="text/babel">
-        const { useState } = React;
+        const { useState, useEffect } = React;
+
+        // PNGC Hole Coordinates (Approximate Center of Greens)
+        const HOLE_COORDS = [
+            {lat: -40.3541, lon: 175.6125}, // Hole 1
+            {lat: -40.3552, lon: 175.6130}, // Hole 2
+            // Note: For full accuracy, you can update these later!
+        ];
 
         const COURSE = {
             Blue: [364, 195, 509, 557, 393, 192, 361, 452, 385, 364, 399, 516, 173, 512, 325, 363, 173, 384],
@@ -22,31 +33,65 @@
         const CLUBS = [
             { id: 'D', label: 'Driver', dist: 225 }, { id: '3W', label: '3 Wood', dist: 205 },
             { id: '5W', label: '5 Wood', dist: 190 }, { id: '3I', label: '3 Iron', dist: 180 },
-            { id: '4I', label: '4 Iron', dist: 170 }, { id: 'PW', label: 'PW', dist: 110 }, { id: 'SW', label: 'SW', dist: 90 }
+            { id: '4I', label: '4 Iron', dist: 170 }, { id: '5I', label: '5 Iron', dist: 160 },
+            { id: '6I', label: '6 Iron', dist: 150 }, { id: '7I', label: '7 Iron', dist: 140 },
+            { id: '8I', label: '8 Iron', dist: 130 }, { id: '9I', label: '9 Iron', dist: 120 },
+            { id: 'PW', label: 'PW', dist: 110 }, { id: 'SW', label: 'SW', dist: 90 }
         ];
 
         function App() {
             const [holeIdx, setHoleIdx] = useState(0);
-            const [score, setScore] = useState(0);
+            const [scores, setScores] = useState(new Array(18).fill(0));
+            const [manualClub, setManualClub] = useState(null);
+            const [userLocation, setUserLocation] = useState(null);
+            const [gpsDist, setGpsDist] = useState(null);
+
+            // Watch GPS Location
+            useEffect(() => {
+                const watchId = navigator.geolocation.watchPosition(
+                    (pos) => {
+                        setUserLocation(pos.coords);
+                        // If we had exact GPS for greens, we'd calc distance here
+                    },
+                    (err) => console.log(err),
+                    { enableHighAccuracy: true }
+                );
+                return () => navigator.geolocation.clearWatch(watchId);
+            }, [holeIdx]);
+
+            const getSuggestion = (dist) => {
+                if (manualClub) return manualClub;
+                const suggestion = [...CLUBS].reverse().find(c => c.dist >= dist) || CLUBS[0];
+                return suggestion.label;
+            };
+
+            const changeClub = () => {
+                const choice = prompt("Which club are you using?");
+                if (choice) setManualClub(choice);
+            };
 
             return (
-                <div style={{backgroundColor: '#1a4314', minHeight: '100vh', color: 'white', padding: '20px', textAlign: 'center', fontFamily: 'sans-serif'}}>
-                    <h1 style={{fontSize: '24px'}}>PNGC HOLE {holeIdx + 1}</h1>
-                    <div style={{background: 'rgba(255,255,255,0.1)', padding: '30px', borderRadius: '20px', margin: '20px 0'}}>
-                        <p style={{fontSize: '50px', fontWeight: 'bold', margin: '0'}}>{COURSE.Blue[holeIdx]}m</p>
-                        <p>PAR {COURSE.Pars[holeIdx]}</p>
+                <div className="min-h-screen flex flex-col items-center bg-gray-50">
+                    <div className="w-full golf-green p-6 text-white text-center rounded-b-[40px] shadow-xl">
+                        <h1 className="text-xl font-bold opacity-80">PNGC HOLE {holeIdx + 1}</h1>
+                        <div className="my-4">
+                            <span className="text-7xl font-black">{COURSE.Blue[holeIdx]}m</span>
+                            <p className="text-sm opacity-60">TO GREEN CENTER</p>
+                        </div>
+                        
+                        <div className="bg-white/10 p-4 rounded-2xl mt-4 border border-white/20">
+                            <p className="text-yellow-400 font-bold">CADDIE SUGGESTS:</p>
+                            <p className="text-2xl font-bold">{getSuggestion(COURSE.Blue[holeIdx])}</p>
+                            <button onClick={changeClub} className="text-xs underline mt-2 opacity-80">Change Club</button>
+                        </div>
                     </div>
-                    <div style={{margin: '20px 0'}}>
-                        <p style={{fontSize: '20px'}}>SCORE: {score}</p>
-                        <button onClick={() => setScore(score + 1)} style={{padding: '15px 30px', fontSize: '20px', borderRadius: '10px', border: 'none', background: '#fbbf24', fontWeight: 'bold'}}>+ STROKE</button>
-                    </div>
-                    <button onClick={() => {setHoleIdx((holeIdx + 1) % 18); setScore(0);}} style={{marginTop: '40px', padding: '15px', width: '100%', borderRadius: '10px', border: '1px solid white', background: 'transparent', color: 'white'}}>NEXT HOLE</button>
-                </div>
-            );
-        }
 
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
-    </script>
-</body>
-</html>
+                    <div className="flex flex-col items-center mt-10 w-full px-6">
+                        <div className="flex items-center gap-6">
+                            <div className="text-center">
+                                <p className="text-gray-500 text-sm uppercase font-bold">Strokes</p>
+                                <p className="text-4xl font-bold text-green-900">{scores[holeIdx]}</p>
+                            </div>
+                            <button 
+                                onClick={() => { let n = [...scores]; n[holeIdx]++; setScores(n); }}
+                                className="golf-green text-white w-20 h-20 rounded-full text-4xl shadow-lg active:scale-
