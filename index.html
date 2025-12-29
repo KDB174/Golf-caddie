@@ -3,44 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>PNGC Caddie V16</title>
+    <title>PNGC Caddie V17</title>
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="theme-color" content="#1a4314">
-
     <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js" crossorigin></script>
     <script src="https://cdn.tailwindcss.com"></script>
-
-    <style>
-        body { background-color: #1a4314; color: white; margin: 0; font-family: sans-serif; }
-        .loading-screen { 
-            display: flex; flex-direction: column; align-items: center; 
-            justify-content: center; height: 100vh; text-align: center;
-        }
-        .retry-btn {
-            margin-top: 20px; padding: 10px 20px; background: #fbbf24; 
-            color: black; border-radius: 10px; font-weight: bold; display: none;
-        }
-    </style>
 </head>
-<body>
-    <div id="root">
-        <div class="loading-screen" id="loader">
-            <h1 style="font-size: 2rem; font-weight: 900; font-style: italic; color: #fbbf24;">PNGC</h1>
-            <p id="status">Syncing with Satellites...</p>
-            <button class="retry-btn" id="retry" onclick="window.location.reload()">Refresh App</button>
-        </div>
-    </div>
-
-    <script>
-        // Show retry button if it takes more than 5 seconds
-        setTimeout(() => {
-            const btn = document.getElementById('retry');
-            if(btn) btn.style.display = 'block';
-            document.getElementById('status').innerText = "Connection slow. Try refreshing.";
-        }, 5000);
-    </script>
+<body class="bg-[#1a4314]">
+    <div id="root"></div>
 
     <script type="text/babel">
         const { useState, useEffect } = React;
@@ -68,11 +40,11 @@
             const [manualClub, setManualClub] = useState(null);
             
             const [clubData, setClubData] = useState(() => {
-                const saved = localStorage.getItem('pngc_v16');
+                const saved = localStorage.getItem('pngc_v17');
                 return saved ? JSON.parse(saved) : CLUBS.map((l, i) => ({ label: l, dist: 210 - (i * 12) }));
             });
 
-            useEffect(() => { localStorage.setItem('pngc_v16', JSON.stringify(clubData)); }, [clubData]);
+            useEffect(() => { localStorage.setItem('pngc_v17', JSON.stringify(clubData)); }, [clubData]);
 
             useEffect(() => {
                 let watchId;
@@ -95,14 +67,20 @@
                 return pick ? pick.label : "Driver";
             };
 
+            const resetGame = () => {
+                setScores(new Array(18).fill(0));
+                setHoleIdx(0);
+                setView('setup');
+            };
+
             if (view === 'setup') {
                 return (
-                    <div className="flex flex-col items-center justify-center p-8 min-h-screen bg-[#1a4314]">
-                        <h1 className="text-4xl font-black mb-10 text-yellow-400 italic">PNGC CADDIE</h1>
-                        <div className="w-full space-y-6">
+                    <div className="flex flex-col items-center justify-center p-8 min-h-screen text-white">
+                        <h1 className="text-4xl font-black mb-10 text-yellow-400 italic tracking-tighter">PNGC CADDIE</h1>
+                        <div className="w-full max-w-xs space-y-6">
                             <div className="flex bg-white/10 rounded-xl p-1">
                                 {[9, 18].map(n => (
-                                    <button key={n} onClick={() => setNumHoles(n)} className={`flex-1 py-3 rounded-lg font-bold ${numHoles === n ? 'bg-yellow-400 text-black' : 'text-white/60'}`}>{n} Holes</button>
+                                    <button key={n} onClick={() => setNumHoles(n)} className={`flex-1 py-3 rounded-lg font-bold transition-all ${numHoles === n ? 'bg-yellow-400 text-black' : 'text-white/60'}`}>{n} Holes</button>
                                 ))}
                             </div>
                             <div className="grid grid-cols-3 gap-2">
@@ -111,10 +89,63 @@
                                 ))}
                             </div>
                             <div className="bg-white/5 p-4 rounded-2xl text-center">
-                                <p className="text-xs font-bold mb-2 opacity-50 uppercase">Handicap: {handicap}</p>
+                                <p className="text-xs font-bold mb-2 opacity-50 uppercase tracking-widest">Handicap: {handicap}</p>
                                 <input type="range" min="0" max="54" value={handicap} onChange={e => setHandicap(parseInt(e.target.value))} className="w-full accent-yellow-400" />
                             </div>
-                            <button onClick={() => setView('play')} className="w-full bg-yellow-400 text-green-900 py-5 rounded-2xl font-black text-xl">START ROUND</button>
+                            <button onClick={() => setView('play')} className="w-full bg-yellow-400 text-green-900 py-5 rounded-2xl font-black text-xl shadow-lg">START ROUND</button>
+                        </div>
+                    </div>
+                );
+            }
+
+            if (view === 'scorecard') {
+                const totalPar = COURSE_DATA.Pars.slice(0, numHoles).reduce((a,b) => a+b, 0);
+                const totalScore = scores.slice(0, numHoles).reduce((a,b) => a+b, 0);
+                const diff = totalScore - totalPar;
+
+                return (
+                    <div className="min-h-screen bg-gray-100 p-4 pb-12 overflow-y-auto">
+                        <div className="bg-[#1a4314] text-white p-6 rounded-[30px] mb-4 text-center">
+                            <h2 className="text-3xl font-black italic text-yellow-400">ROUND SUMMARY</h2>
+                            <p className="text-sm opacity-60 uppercase font-bold tracking-widest">{numHoles} Holes • {tee} Tees</p>
+                        </div>
+
+                        <div className="bg-white rounded-3xl shadow-xl overflow-hidden mb-6">
+                            <table className="w-full text-center">
+                                <thead className="bg-gray-200 text-[10px] font-bold text-gray-500 uppercase">
+                                    <tr>
+                                        <th className="py-3">Hole</th>
+                                        <th className="py-3">Par</th>
+                                        <th className="py-3">Score</th>
+                                        <th className="py-3">+/-</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="text-lg font-black text-green-900">
+                                    {scores.slice(0, numHoles).map((s, i) => {
+                                        const par = COURSE_DATA.Pars[i];
+                                        const over = s === 0 ? 0 : s - par;
+                                        return (
+                                            <tr key={i} className="border-b border-gray-50">
+                                                <td className="py-3 text-gray-400 font-bold">{i+1}</td>
+                                                <td className="py-3">{par}</td>
+                                                <td className="py-3">{s === 0 ? '-' : s}</td>
+                                                <td className={`py-3 ${over > 0 ? 'text-red-500' : over < 0 ? 'text-blue-500' : 'text-gray-300'}`}>
+                                                    {over > 0 ? `+${over}` : over === 0 ? 'E' : over}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div className="bg-white p-6 rounded-[30px] shadow-lg text-center border-t-8 border-yellow-400">
+                            <p className="text-xs font-bold text-gray-400 uppercase">Final Score</p>
+                            <h3 className="text-6xl font-black text-green-900">{totalScore}</h3>
+                            <p className={`text-xl font-bold ${diff > 0 ? 'text-red-500' : 'text-blue-500'}`}>
+                                {diff > 0 ? `+${diff}` : diff === 0 ? 'Even Par' : diff}
+                            </p>
+                            <button onClick={resetGame} className="mt-8 w-full bg-black text-white py-5 rounded-2xl font-black uppercase tracking-widest">New Round</button>
                         </div>
                     </div>
                 );
@@ -123,45 +154,47 @@
             return (
                 <div className="bg-gray-100 min-h-screen flex flex-col items-center text-black">
                     <div className="w-full bg-[#1a4314] p-6 text-white text-center rounded-b-[40px] shadow-xl">
-                        <p className="text-xs font-bold opacity-50 uppercase">Hole {holeIdx+1} • {tee}</p>
-                        <h2 className="text-7xl font-black my-2">{COURSE_DATA[tee][holeIdx]}m</h2>
-                        <button onClick={() => { setMenuMode('change'); setShowClubMenu(true); }} className="bg-yellow-400 text-black px-6 py-2 rounded-full font-black uppercase italic shadow-lg active:scale-95 transition-transform">
+                        <div className="flex justify-between items-center mb-1">
+                            <p className="text-[10px] font-bold opacity-50 uppercase tracking-widest">Hole {holeIdx+1} • {tee}</p>
+                            <p className="text-[10px] font-bold bg-white/20 px-2 py-1 rounded">PAR {COURSE_DATA.Pars[holeIdx]}</p>
+                        </div>
+                        <h2 className="text-7xl font-black my-2 leading-none">{COURSE_DATA[tee][holeIdx]}m</h2>
+                        <button onClick={() => { setMenuMode('change'); setShowClubMenu(true); }} className="bg-yellow-400 text-black px-6 py-2 rounded-full font-black uppercase italic shadow-lg">
                             Take: {getClubSuggestion()} ✍️
                         </button>
                     </div>
 
                     <div className="w-full p-4 space-y-4 max-w-md">
                         <div className="bg-white p-6 rounded-[35px] shadow-sm text-center border-2 border-gray-200">
-                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Last Shot</p>
+                            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Live Tracking</p>
                             <p className="text-7xl font-black text-green-900">{walkedDist}m</p>
                             {!startCoords ? (
-                                <button onClick={() => navigator.geolocation.getCurrentPosition(p => setStartCoords({lat: p.coords.latitude, lon: p.coords.longitude}))} className="w-full mt-4 bg-green-900 text-white py-5 rounded-2xl font-bold uppercase tracking-widest shadow-lg">Start Tracker</button>
+                                <button onClick={() => navigator.geolocation.getCurrentPosition(p => setStartCoords({lat: p.coords.latitude, lon: p.coords.longitude}))} className="w-full mt-4 bg-green-900 text-white py-5 rounded-2xl font-black uppercase tracking-widest shadow-lg">Start Tracker</button>
                             ) : (
-                                <button onClick={() => { setMenuMode('save'); setShowClubMenu(true); }} className="w-full mt-4 bg-yellow-500 text-white py-5 rounded-2xl font-black uppercase tracking-widest shadow-lg animate-pulse">Save to Bag</button>
+                                <button onClick={() => { setMenuMode('save'); setShowClubMenu(true); }} className="w-full mt-4 bg-yellow-500 text-white py-5 rounded-2xl font-black uppercase tracking-widest shadow-lg animate-pulse">Save Distance</button>
                             )}
                         </div>
 
                         <div className="bg-white p-4 rounded-[30px] shadow-sm flex justify-between items-center px-8 border border-gray-100">
                             <button onClick={() => {let n=[...scores]; n[holeIdx]=Math.max(0, n[holeIdx]-1); setScores(n)}} className="text-6xl text-gray-200">-</button>
                             <div className="text-center leading-none">
-                                <p className="text-[10px] font-bold text-gray-400 uppercase">Score</p>
-                                <p className="text-5xl font-black text-green-900">{scores[holeIdx]}</p>
+                                <p className="text-[10px] font-bold text-gray-400 uppercase">Strokes</p>
+                                <p className="text-6xl font-black text-green-900">{scores[holeIdx]}</p>
                             </div>
                             <button onClick={() => {let n=[...scores]; n[holeIdx]++; setScores(n)}} className="w-16 h-16 bg-green-900 text-white rounded-full text-4xl font-bold active:scale-90 transition-transform shadow-lg">+</button>
                         </div>
                     </div>
 
                     <div className="mt-auto w-full grid grid-cols-2 gap-2 p-4 pb-8">
-                        <button onClick={() => alert(clubData.map(c=>`${c.label}: ${c.dist}m`).join('\n'))} className="bg-white py-5 rounded-2xl text-[10px] font-bold uppercase text-gray-400 border border-gray-200">My Bag</button>
+                        <button onClick={() => alert(clubData.map(c=>`${c.label}: ${c.dist}m`).join('\n'))} className="bg-white py-5 rounded-2xl text-[10px] font-bold uppercase text-gray-400 border border-gray-200">View My Bag</button>
                         <button onClick={() => {
                             if (holeIdx + 1 >= numHoles) {
-                                alert(`Total Score: ${scores.reduce((a,b) => a+b, 0)}`);
-                                window.location.reload();
+                                setView('scorecard');
                             } else {
                                 setManualClub(null); setStartCoords(null); setWalkedDist(0); setHoleIdx(holeIdx+1);
                             }
                         }} className="bg-black text-white py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest">
-                            {holeIdx + 1 >= numHoles ? "FINISH" : "NEXT HOLE"}
+                            {holeIdx + 1 >= numHoles ? "VIEW SCORECARD" : "NEXT HOLE"}
                         </button>
                     </div>
 
