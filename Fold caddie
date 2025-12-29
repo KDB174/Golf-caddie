@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>PNGC Caddie</title>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+        .golf-green { background-color: #1a4314; }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState } = React;
+
+        const COURSE = {
+            Blue: [364, 195, 509, 557, 393, 192, 361, 452, 385, 364, 399, 516, 173, 512, 325, 363, 173, 384],
+            Pars: [4, 3, 5, 5, 4, 3, 4, 4, 4, 4, 4, 5, 3, 5, 4, 4, 3, 4]
+        };
+
+        const INITIAL_CLUBS = [
+            { id: 'D', label: 'Driver', dist: 225 }, { id: '3W', label: '3 Wood', dist: 205 },
+            { id: '5W', label: '5 Wood', dist: 190 }, { id: '3I', label: '3 Iron', dist: 180 },
+            { id: '4I', label: '4 Iron', dist: 170 }, { id: '5I', label: '5 Iron', dist: 160 },
+            { id: '6I', label: '6 Iron', dist: 150 }, { id: '7I', label: '7 Iron', dist: 140 },
+            { id: '8I', label: '8 Iron', dist: 130 }, { id: '9I', label: '9 Iron', dist: 120 },
+            { id: 'PW', label: 'PW', dist: 110 }, { id: 'SW', label: 'SW', dist: 90 }
+        ];
+
+        function App() {
+            const [view, setView] = useState('setup');
+            const [handicap, setHandicap] = useState(18);
+            const [holeIdx, setHoleIdx] = useState(0);
+            const [scores, setScores] = useState(new Array(18).fill(0));
+            const [manualClub, setManualClub] = useState(null);
+
+            const factor = handicap < 10 ? 1.0 : handicap < 20 ? 0.92 : 0.85;
+            
+            const getSuggestion = (dist) => {
+                if (manualClub) return manualClub;
+                const suggestion = [...INITIAL_CLUBS].reverse().find(c => (c.dist * factor) >= dist) || INITIAL_CLUBS[0];
+                return suggestion.label;
+            };
+
+            if (view === 'setup') {
+                return (
+                    <div class="min-h-screen golf-green p-6 text-white flex flex-col items-center">
+                        <h1 class="text-3xl font-bold mb-8">PNGC SETUP</h1>
+                        <p class="text-yellow-400 font-bold mb-2">HANDICAP: {handicap}</p>
+                        <div class="flex gap-4 mb-8">
+                            <button onClick={() => setHandicap(h => Math.max(0, h-1))} class="bg-white text-black w-12 h-12 rounded-full font-bold text-xl">-</button>
+                            <button onClick={() => setHandicap(h => h+1)} class="bg-white text-black w-12 h-12 rounded-full font-bold text-xl">+</button>
+                        </div>
+                        <h2 class="text-xl font-bold mb-4">YOUR 14-CLUB BAG</h2>
+                        <div class="w-full max-w-sm bg-white/10 rounded-xl p-4 overflow-y-auto max-h-64 mb-6">
+                            {INITIAL_CLUBS.map(c => (
+                                <div key={c.id} class="flex justify-between py-2 border-b border-white/10">
+                                    <span>{c.label}</span>
+                                    <span class="text-yellow-400">{Math.round(c.dist * factor)}m</span>
+                                </div>
+                            ))}
+                        </div>
+                        <button onClick={() => setView('play')} class="bg-yellow-400 text-green-900 font-bold w-full py-4 rounded-xl text-xl mt-auto">START ROUND</button>
+                    </div>
+                );
+            }
+
+            if (view === 'play') {
+                return (
+                    <div class="min-h-screen bg-gray-100 flex flex-col items-center p-4">
+                        <h2 class="text-xl font-bold text-green-900 mt-4">HOLE {holeIdx + 1} - PAR {COURSE.Pars[holeIdx]}</h2>
+                        <div class="golf-green w-full rounded-3xl p-10 mt-6 text-center shadow-lg">
+                            <p class="text-6xl font-black text-white">{COURSE.Blue[holeIdx]}m</p>
+                            <p class="text-white/70 uppercase text-sm mt-2">To Green (Blue)</p>
+                            <div class="mt-6 p-3 bg-white/10 rounded-lg inline-block">
+                                <p class="text-yellow-400 font-bold text-lg">CADDIE: {getSuggestion(COURSE.Blue[holeIdx])}</p>
+                                <button onClick={() => {
+                                    const choice = prompt("Enter club name (e.g. 5 Iron):");
+                                    if(choice) setManualClub(choice);
+                                }} class="text-white text-xs underline mt-1">Change Club</button>
+                            </div>
+                        </div>
+
+                        <div class="mt-10 flex flex-col items-center">
+                            <p class="text-xl font-bold">STROKES: {scores[holeIdx]}</p>
+                            <button onClick={() => {
+                                let n = [...scores]; n[holeIdx]++; setScores(n);
+                            }} class="golf-green text-white w-20 h-20 rounded-full text-4xl mt-4 shadow-xl">+</button>
+                        </div>
+
+                        <div class="mt-auto mb-6 w-full flex gap-4">
+                            <button onClick={() => setView('scorecard')} class="bg-white border-2 border-green-900 text-green-900 font-bold flex-1 py-4 rounded-2xl">CARD</button>
+                            <button onClick={() => {
+                                setManualClub(null);
+                                holeIdx < 17 ? setHoleIdx(holeIdx + 1) : setView('setup');
+                            }} class="bg-yellow-400 text-green-900 font-bold flex-2 py-4 rounded-2xl px-10">NEXT HOLE</button>
+                        </div>
+                    </div>
+                );
+            }
+
+            if (view === 'scorecard') {
+                return (
+                    <div class="min-h-screen bg-white p-6 flex flex-col items-center">
+                        <h1 class="text-2xl font-
